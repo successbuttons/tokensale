@@ -1,88 +1,77 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^ 0.8.0;
+pragma solidity ^0.8.0;
 
 interface IToken {
-    function totalSupply() external view returns(uint256);
-    function balanceOf(address account) external view returns(uint256);
-    function transferFrom(address sender, address recipient, uint256 amount) external returns(bool);
-
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
 }
 
-contract TestController{
+contract TestController {
     event TokenPurchased(address indexed _owner, uint256 _amount, uint256 _bnb);
 
-    IToken Token;
+    IToken token;
 
-    bool public is_preselling;
+    bool public isPreselling;
     address payable owner;
-    
-    //a wallet address where the token will be taken from when someone buys... 
-    //any wallet address that holds enough supply for the sale
-    address payable tokenSource = payable(tokenAddress);
-    
-    //a wallet address of your choice... 
-    //this will receive the native asset or coin of network (bnb / ether...etc)
-    address payable fundreceiver;
-    
-    
+    address payable tokenSource = payable(0x8238eD4aF596F44B34310D3FD66a4AE12d88561b);
+    address payable fundReceiver;
+
     uint256 soldTokens;
     uint256 receivedFunds;
-    
-    //upon deployment set the contract address of the token
-    constructor(IToken _tokenAddress)  {
-        Token = _tokenAddress; 
+
+    constructor(IToken _tokenAddress) {
+        token = _tokenAddress;
         owner = payable(msg.sender);
-        fundreceiver = owner;
-        is_preselling = true;
+        fundReceiver = owner;
+        isPreselling = true;
     }
 
     modifier onlyOwner() {
-        require(msg.sender == owner, "invalid owner");
+        require(msg.sender == owner, "Only the contract owner can call this function");
         _;
     }
-    
-    //buy tokens
-    function sale(uint256 _amount) public payable returns(bool)  {
-        require(is_preselling, "pre selling is over.");
-        Token.transferFrom(tokenSource, msg.sender, _amount);
-        fundreceiver.transfer(msg.value);
+
+    function sale(uint256 _amount) public payable returns (bool) {
+        require(isPreselling, "Pre-selling is over.");
+
+        bool transferSuccess = token.transferFrom(tokenSource, msg.sender, _amount);
+        require(transferSuccess, "Token transfer failed");
+
+        bool sendSuccess = fundReceiver.send(msg.value);
+        require(sendSuccess, "Failed to send funds");
+
         soldTokens += _amount;
         receivedFunds += msg.value;
         emit TokenPurchased(msg.sender, _amount, msg.value);
         return true;
     }
-    
-    function getTokenSupply() public view returns(uint256){
-        return Token.totalSupply();
+
+    function getTokenSupply() public view returns (uint256) {
+        return token.totalSupply();
     }
-    
-    function getTokenbalance(address _address) public view returns(uint256){
-        return Token.balanceOf(_address);
+
+    function getTokenBalance(address _address) public view returns (uint256) {
+        return token.balanceOf(_address);
     }
-    
-    function totalSoldTokens() public view returns(uint256){
+
+    function totalSoldTokens() public view returns (uint256) {
         return soldTokens;
     }
-    function totalReceivedFunds() public view returns(uint256){
+
+    function totalReceivedFunds() public view returns (uint256) {
         return receivedFunds;
     }
-    
-    function getbalance()  public onlyOwner {
+
+    function getBalance() public onlyOwner {
         owner.transfer(address(this).balance);
     }
 
-    
-    function SetReceiver(address payable _fund) public onlyOwner {
-        fundreceiver = _fund;
+    function setReceiver(address payable _fund) public onlyOwner {
+        fundReceiver = _fund;
     }
 
-
-    function SetPreSellingStatus() public onlyOwner {
-        if (is_preselling) {
-            is_preselling = false;
-        } else {
-            is_preselling = true;
-        }
+    function setPreSellingStatus() public onlyOwner {
+        isPreselling = !isPreselling;
     }
-
 }
